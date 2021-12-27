@@ -4,7 +4,7 @@ const cookieParser = require("cookie-parser");
 require("dotenv").config();
 require("./db/auth.conn");
 
-const port = process.env.port;
+const port = process.env.port || "8000";
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -15,6 +15,6 @@ const studRouter = require("./routes/stud.router");
 app.use("/auth", adminRouter);
 app.use("/stud", studRouter);
 
-app.listen(port, (req, res) => {
+app.listen(port, () => {
     console.log(`your ${port} is running...`);
 });
