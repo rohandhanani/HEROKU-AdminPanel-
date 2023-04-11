@@ -1,0 +1,401 @@
+**********------Add Record  ****-------
+ RadioGroup rbgrp;
+    EditText edname,edcity;
+    DBhandler db = new DBhandler(this);
+
+    Button addbtn;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_add_employee);
+        getSupportActionBar().setTitle("Add Employee");
+
+        rbgrp = findViewById(R.id.rbgrp);
+        edname = findViewById(R.id.edname);
+        edcity =findViewById(R.id.edcity);
+
+        addbtn = findViewById(R.id.addbtn);
+        addbtn.setOnClickListener(this);
+
+    }
+
+    @Override
+    public void onClick(View v) {
+        String selectedValue = "";
+    switch (v.getId()){
+        case R.id.addbtn:
+           String city = edcity.getText().toString();
+           String name = edname.getText().toString();
+            int radioButtonId = rbgrp.getCheckedRadioButtonId();
+            if (radioButtonId != -1) {
+                RadioButton radioButton = findViewById(radioButtonId);
+                selectedValue = radioButton.getText().toString();
+            }
+            db.AddEmployee(new EmployeeEntity(name,selectedValue,city));
+            Toast.makeText(AddEmployee.this,"new data inserted",Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this,MainActivity.class));
+            break;
+    }
+
+    }
+
+
+**********------Db Handler  ****-------
+
+
+public class DBhandler extends SQLiteOpenHelper {
+
+    private static final int DB_VERSION = 1;
+    private static final String DATABASE_NAME = "Employee.db";
+    private static final String TABLE_NAME = "emp";
+
+    private static final String EMP_ID = "eid";
+    private static final String EMP_NAME = "ename";
+    private static final String EMP_GENDER = "egender";
+    private static final String EMP_CITY = "ecity";
+
+
+    public DBhandler(Context context) {
+        super(context, DATABASE_NAME, null, DB_VERSION);
+    }
+
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        String CREATE_EMP_TABLE =
+                "CREATE TABLE " + TABLE_NAME + " (" + EMP_ID + " INTEGER PRIMARY KEY," +
+                 EMP_NAME + " TEXT," +
+                 EMP_GENDER + " TEXT," +
+                 EMP_CITY + " TEXT)";
+        db.execSQL(CREATE_EMP_TABLE);
+
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
+        onCreate(db);
+    }
+
+    public  void  AddEmployee(EmployeeEntity employee){
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(EMP_NAME,employee.getEname());
+        values.put(EMP_GENDER,employee.getEgender());
+        values.put(EMP_CITY,employee.getEcity());
+        db.insert(TABLE_NAME,null,values);
+    }
+
+    public ArrayList<EmployeeEntity> getAllEmployee() {
+        ArrayList<EmployeeEntity> emplist = new ArrayList<EmployeeEntity>();
+        String selectQuery = "SELECT * FROM " + TABLE_NAME;
+        SQLiteDatabase db = this.getWritableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery,null);
+        if(cursor.moveToFirst()){
+            do{
+                EmployeeEntity emp = new EmployeeEntity();
+                emp.setEid(cursor.getInt(0));
+                emp.setEname(cursor.getString(1));
+                emp.setEgender(cursor.getString(2));
+                emp.setEcity(cursor.getString(3));
+                emplist.add(emp);
+            }while (cursor.moveToNext());
+        }
+        return emplist;
+    }
+
+    EmployeeEntity getOneEmployee (int id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.query(TABLE_NAME, new String[]{EMP_ID,
+                        EMP_NAME, EMP_GENDER, EMP_CITY}, EMP_ID + "=?",
+                new String[]{String.valueOf(id)}, null, null, null, null);
+        if (cursor != null)
+            cursor.moveToFirst();
+
+        EmployeeEntity employee = new EmployeeEntity(Integer.parseInt(cursor.getString(0)),
+                cursor.getString(1), cursor.getString(2), cursor.getString(3));
+
+        return employee;
+    }
+    public void deleteEmployee(EmployeeEntity emp) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_NAME, EMP_ID + " = ?",
+                new String[]{String.valueOf(emp.getEid())});
+        db.close();
+    }
+
+    public  int getEmployeeCount(){
+    String countquery = "SELECT * FROM "+ TABLE_NAME;
+    SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor =db.rawQuery(countquery,null);
+        return cursor.getCount();
+
+    }
+}
+
+
+**********------Adapter ****-------
+
+public class EmployeeAdapter extends RecyclerView.Adapter<EmployeeAdapter.MyViewholder> {
+
+    Context context;
+    int resource;
+    ArrayList<EmployeeEntity> employees;
+    DBhandler db ;
+
+    public EmployeeAdapter(Context context, int resource, ArrayList<EmployeeEntity> employees) {
+        this.context = context;
+        this.resource = resource;
+        this.employees = employees;
+    }
+
+    @NonNull
+    @Override
+    public MyViewholder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext()).inflate(resource, parent, false);
+        return new MyViewholder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull EmployeeAdapter.MyViewholder holder, int position) {
+    EmployeeEntity emp = employees.get(position);
+    holder.labl_id.setText(String.valueOf(emp.getEid()));
+    holder.labl_name.setText(emp.getEname());
+    holder.labl_gender.setText(emp.getEgender());
+    holder.labl_city.setText(emp.getEcity());
+
+        /*holder.edit_btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                db = new DBhandler(context);
+                contact.set_name("Niti");
+                db.updateContact(contact);
+            }
+        });*/
+
+        holder.delit_btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                db = new DBhandler(context);
+                db.deleteEmployee(emp);
+
+                delete(holder.getAdapterPosition());
+            }
+        });
+
+    }
+    public void delete(int position) {
+        employees.remove(position);
+        notifyItemRemoved(position);
+        notifyItemRangeChanged(position, employees.size());
+    }
+    @Override
+    public int getItemCount() {
+        return employees.size();
+    }
+
+    public class MyViewholder extends RecyclerView.ViewHolder {
+        TextView labl_id, labl_name, labl_gender, labl_city;
+        ImageButton delit_btn,edit_btn;
+
+        public MyViewholder(@NonNull View itemView) {
+            super(itemView);
+            labl_id = itemView.findViewById(R.id.labl_id);
+            labl_name = itemView.findViewById(R.id.labl_name);
+            labl_gender = itemView.findViewById(R.id.labl_gender);
+            labl_city = itemView.findViewById(R.id.labl_city);
+            delit_btn = itemView.findViewById(R.id.delit_btn);
+            edit_btn = itemView.findViewById(R.id.edit_btn);
+        }
+    }
+}
+
+
+**********-----Main Activity  ****-------
+
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    TextView countid;
+    Button viewrecord;
+
+    DBhandler db = new DBhandler(this);
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        getSupportActionBar().setTitle("Menus");
+
+        countid = findViewById(R.id.countid);
+        viewrecord = findViewById(R.id.viewrecord);
+        viewrecord.setOnClickListener(this);
+       int tcount = db.getEmployeeCount();
+        countid.setText("Total Db Record" + tcount);
+    }
+
+    @Override
+    public boolean onCreatePanelMenu(int featureId, @NonNull Menu menu) {
+        getMenuInflater().inflate(R.menu.menus, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+       switch (item.getItemId()){
+           case R.id.addid:
+               startActivity(new Intent(this,AddEmployee.class));
+               return true;
+              /* Toast.makeText(getApplicationContext(), "Added..", Toast.LENGTH_LONG).show();
+               return true;*/
+           case  R.id.create_new:
+               Toast.makeText(getApplicationContext(), "Creating New..", Toast.LENGTH_LONG).show();
+               return true;
+           case R.id.open:
+               Toast.makeText(getApplicationContext(), "Opening ..", Toast.LENGTH_LONG).show();
+               return true;
+
+           default:
+               return super.onOptionsItemSelected(item);
+       }
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()){
+            case R.id.viewrecord:
+                startActivity(new Intent(this,ViewEmployee.class));
+                break;
+        }
+    }
+}
+
+
+**********------View employee  ****-------
+
+ RecyclerView rcvid;
+    DBhandler db ;
+    EmployeeAdapter adapter;
+
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_view_employee);
+
+        rcvid = findViewById(R.id.rcvid);
+        db = new DBhandler(this);
+
+
+        ArrayList<EmployeeEntity> students = db.getAllEmployee();
+        adapter = new EmployeeAdapter(this, R.layout.listemployee,students);
+        RecyclerView.LayoutManager layoutManager = new LinearLayoutManager(this,LinearLayoutManager.VERTICAL,false);
+        rcvid.setLayoutManager(layoutManager);
+        rcvid.addItemDecoration(new DividerItemDecoration(rcvid.getContext(),DividerItemDecoration.VERTICAL));
+        rcvid.setAdapter(adapter);
+
+
+
+**********------Control ****-------
+
+<RadioGroup
+        android:id="@+id/rbgrp"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="left">
+
+        <RadioButton
+            android:id="@+id/rmale"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Male" />
+
+        <RadioButton
+            android:id="@+id/rfemale"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Female" />
+    </RadioGroup>
+
+
+
+
+card view
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:cardElevation="12dp"
+    app:cardCornerRadius="16dp"
+    android:layout_margin="16dp"
+    android:backgroundTint="#efefef">
+
+    <RelativeLayout
+        android:layout_width="365dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/labl_id"
+            android:layout_width="246dp"
+            android:layout_height="wrap_content"
+            android:text="Id"
+            android:textSize="25dp" />
+
+        <TextView
+            android:id="@+id/labl_name"
+            android:layout_width="158dp"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/labl_id"
+            android:text="Name"
+            android:textSize="25dp" />
+
+        <TextView
+            android:id="@+id/labl_gender"
+            android:layout_width="158dp"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/labl_name"
+            android:text="Gender"
+            android:textSize="25dp" />
+
+        <TextView
+            android:id="@+id/labl_city"
+            android:layout_width="158dp"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/labl_gender"
+            android:text="City"
+            android:textSize="25dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@id/labl_id"
+            android:gravity="right">
+
+            <ImageButton
+                android:id="@+id/edit_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:contentDescription="edit"
+                android:src="@android:drawable/ic_menu_edit" />
+
+            <ImageButton
+                android:id="@+id/delit_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentRight="true"
+                android:contentDescription="Delete"
+                android:src="@android:drawable/ic_delete" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+</androidx.cardview.widget.CardView>
+
+
+    }
